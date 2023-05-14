@@ -150,12 +150,10 @@ class neuroNetworkLayer:
 
         #! Only apply regulization at the second Layer
     
-    def forward(self):
+    def forward(self,inputs):
+        self.input = inputs 
         self.outputs = np.dot(self.input, self.weights) + self.bias #softMaxFunction(pushForward(np.dot(self.input,self.weights)) + self.bias)
        # print(self.outputs)
-    
-    def changeInput(self,inputs):
-        self.input = inputs 
 
     def backwards(self, dvalues):
         self.dweights = np.dot(self.input.T, dvalues)
@@ -209,11 +207,9 @@ bestAccuracy = 0
 
 for epoch in range(10001):
 
-    Layer1.changeInput(X)   
-    Layer1.forward()
+    Layer1.forward(X)   
     Activation.forward(Layer1.outputs)
-    Layer2.changeInput(Activation.outputs)
-    Layer2.forward()
+    Layer2.forward(Activation.outputs)
     Activation2.forward(Layer2.outputs)
     
     NormalLoss = loss.calculate(Layer2.outputs, y)
@@ -250,11 +246,9 @@ print('')
 print('test run')
 
 for epoch1 in range(1):
-    Layer1.changeInput(Xtest)   
-    Layer1.forward()
+    Layer1.forward(Xtest)   
     Activation.forward(Layer1.outputs)
-    Layer2.changeInput(Activation.outputs)
-    Layer2.forward()
+    Layer2.forward(Activation.outputs)
     
     NormalLoss = loss.calculate(Layer2.outputs, Ytest)
     RegulizationLoss = loss.regulizationForward(Layer1) + loss.regulizationForward(Layer2) 

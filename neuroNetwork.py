@@ -182,7 +182,7 @@ class neuroNetworkLayer:
 
         self.dinputs = np.dot(dvalues, self.weights.T)
 
-
+'''
 X,y = spiral_data(samples = 100, classes = 2)
 Xtest, Ytest = spiral_data(samples = 100, classes = 2)
 
@@ -276,7 +276,7 @@ for epoch1 in range(1):
 
 
 print(f'accuracy: {accuracy} loss: {ActualLoss} epoch: {epoch}')
-
+'''
 
 
 

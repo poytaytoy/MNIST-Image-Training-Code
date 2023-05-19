@@ -26,6 +26,11 @@ class softMaxFunction:
         for index, (outputs, dvalue) in enumerate(self.outputs, dvalues):
             jacobMatrix = np.diagflat(outputs.reshape(-1,1)) - np.dot(outputs, outputs.T)
             self.dinputs[index] = np.dot(jacobMatrix, dvalue)
+    def calculatePrediction(self, y):
+        predictions = np.argmax(self.outputs, axis = 1)
+        predictions2 = np.argmax(y, axis = 1) if len(y.shape) == 2 else y
+        return np.mean(predictions == predictions2)
+
 
 #For binary regression
 class sigmoidFunction:
@@ -35,6 +40,22 @@ class sigmoidFunction:
 
     def backwards(self, dvalues):
         self.dinputs = dvalues * self.outputs * (1 - self.outputs)
+
+    def calculatePrediction(self, y):
+        predictions = (self.outputs > 0.5) * 1
+        return np.mean(predictions == y)
+
+class LinearActivation:
+    def forward(self, inputs):
+        self.inputs = inputs 
+        self.outputs = inputs 
+
+    def backwards(self, dvalues):
+        self.dinputs = dvalues.copy()
+
+    def calculatePrediction(self,y, rangeLimit = 250):
+        accuracyRange = np.std(y)/rangeLimit
+        return np.mean(np.abs(y - self.outputs) < accuracyRange)
 
 class FunctionLoss:
     def calculate(self, outputs, targetedClass):
@@ -99,6 +120,26 @@ class LossBinaryCrossEntropy(FunctionLoss):
             clippedDvalues = np.clip(dvalues, 1e-7, 1-1e-7)
             dimensions = dvalues.shape
             self.dinputs  = -((realY/clippedDvalues) - (1-realY)/(1-clippedDvalues))/dimensions[1]/dimensions[0]
+
+
+class MeanSquaredError(FunctionLoss):
+    def forward(self, outputs, realY):
+        sampleLoss = np.mean((realY - outputs)**2, axis = -1)
+        return sampleLoss
+    
+    def backwards(self, outputs, realY):
+        dimensions = outputs.shape
+        self.dinputs = -2*(realY - outputs)/dimensions[0]/dimensions[1]
+
+class MeanAbsoluteError(FunctionLoss):
+    def forward(self, outputs, realY):
+        sampleLoss = np.mean(np.abs((realY - outputs)), axis = -1)
+        return sampleLoss
+
+    def backwards(self, dvalues, realY):
+        dimensions = dvalues.shape
+        self.dinputs = np.sign(realY - dvalues)/dimensions[1]/dimensions[0]
+        #! The dinputs is too large - Don't use this
 
 class CategoricalCrossEntropy:
     def __init__(self):
@@ -278,12 +319,82 @@ for epoch1 in range(1):
 print(f'accuracy: {accuracy} loss: {ActualLoss} epoch: {epoch}')
 '''
 
-
-
-
-
-
    # y * -log(predictedy) - (1-y) * -log(1 - predictedy)     
 
 # (realY / np.log(Y)) - (1-realY)/np.log(1-Y) / dimensionp[1] / dimension[0]
+
+class neuroModel:
+
+    def __init__(self):
+        self.layers = []
+
+    def add(self, layer):
+        self.layers.append(layer)
+        #Be sure to add by first layer to last and DOES NOT INCLUDE THE Loss and Optimizer 
+
+    def set(self, lossLayer, Optimizer):
+        self.lossLayer = lossLayer
+        self.optimize = Optimizer
+
+    def train(self, Xdata, ydata, epochs = 1, printEvery = 1):
+        self.X = Xdata
+        self.y = ydata 
+        epoch = epochs 
+        printEveryEpoch = printEvery
+        NoOfLayers = len(self.layers)
+        neuronLayers = []
+
+        for i in range(NoOfLayers):
+            if isinstance(self.layers[i], neuroNetworkLayer):
+                neuronLayers.append(self.layers[i])
+
+        for epoch1 in range(epochs + 1):
+            for i in range(NoOfLayers):
+                self.layers[i].forward((self.X if i == 0 else self.layers[i-1].outputs))
+
+            if not epoch1 % printEveryEpoch:
+                NormalLoss = self.lossLayer.calculate(self.layers[NoOfLayers - 1].outputs, self.y)
+                RegulizationLoss = 0
+                for i in neuronLayers:
+                    RegulizationLoss += self.lossLayer.regulizationForward(i)
+                ActualLoss = NormalLoss + RegulizationLoss
+                accuracy = self.layers[NoOfLayers - 1].calculatePrediction(self.y)
+              
+
+                print('e', epoch1)
+                print('p', accuracy)
+                print('l', ActualLoss)
+                print('nl', NormalLoss)
+                print('rl', RegulizationLoss)
+                print('\n')
+            
+            for i in range(NoOfLayers, -1, -1):
+                if i == NoOfLayers:
+                    self.lossLayer.backwards(self.layers[i - 1].outputs, self.y)
+                elif i == NoOfLayers - 1:
+                    self.layers[i].backwards(self.lossLayer.dinputs)
+                else:
+                    self.layers[i].backwards(self.layers[i + 1].dinputs)
+
+            self.optimize.adjustRate()
+            for layers in neuronLayers:
+                self.optimize.updateWeightsBias(layers)
+            self.optimize.updateStep()
+ 
+X,y = spiral_data(samples = 100, classes = 2)
+Xtest, Ytest = spiral_data(samples = 100, classes = 2)
+
+y = y.reshape(-1, 1)
+Ytest = Ytest.reshape(-1,1)
+
+model = neuroModel()
+
+model.add(neuroNetworkLayer(2, 64, weightsRegulizationL2 = 5e-4, biasRegulizationL2=5e-4))
+model.add(activateRELU())
+model.add(neuroNetworkLayer(64,1))
+model.add(sigmoidFunction())
+
+model.set(LossBinaryCrossEntropy(), op.Optimizer_Adam(rate = 0.02, decay = 5e-7))
+
+model.train(X, y, 10001, 100)
 

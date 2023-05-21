@@ -1,5 +1,4 @@
-# NeuralNetworkCodeNotes
-My code on making my first neural network from scratch from the nnfs book.
+My code on making my first neural network from scratch from the nnfs book using the MNIST image dataset.
 
 https://nnfs.io/
 
